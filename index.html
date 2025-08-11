@@ -1,1104 +1,283 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Daily Tools Portal — All Tools + Advanced PDF Visual Editor</title>
-  <meta name="description" content="Daily Tools Portal — handy client-side utilities and an advanced in-browser PDF visual editor (WYSIWYG export)." />
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="/" />
-
-  <!-- Bootstrap + icons -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
-
-  <style>
-    :root {
-      --bg1: #071026;
-      --bg2: #081428;
-      --card: rgba(255,255,255,0.03);
-      --muted: #9aa6b2;
-      --accent: #06b6d4;
-    }
-    *{box-sizing:border-box}
-    body {
-      margin:0;
-      background: linear-gradient(180deg, var(--bg1) 0%, var(--bg2) 100%);
-      color: #eaf4fb;
-      font-family: Inter, system-ui, Roboto, Arial, sans-serif;
-      -webkit-font-smoothing:antialiased;
-    }
-    .navbar{ background: linear-gradient(90deg, rgba(2,6,23,0.75), rgba(4,10,30,0.85)); }
-    .hero { padding: 36px 0; }
-    .tool-card { background: var(--card); border: 1px solid rgba(255,255,255,0.04); transition: transform .12s ease, box-shadow .12s ease; cursor:pointer; }
-    .tool-card:hover { transform: translateY(-6px); box-shadow: 0 12px 30px rgba(2,6,23,0.6); }
-    .icon-box{ width:70px; height:70px; border-radius:12px; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,0.02); font-size:28px; }
-    .small-muted{ color: var(--muted); }
-    main { min-height: 70vh; padding-bottom: 48px; }
-
-    /* pages */
-    .page { display: none; }
-    .page.active { display: block; }
-
-    /* PDF editor area */
-    #pdfPreview { background: #fff; padding: 14px; border-radius: 10px; color: #000; display:flex; flex-wrap:wrap; gap:12px; justify-content:flex-start; align-items:flex-start; min-height:220px; }
-    .page-wrap { position: relative; border-radius:6px; overflow: visible; border:1px solid #ddd; background:#fff; display:inline-block;}
-    .base-canvas { display:block; }
-    .overlay { position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:auto; }
-    .text-box { position:absolute; padding:6px; border:1px dashed rgba(0,0,0,0.12); background:transparent; min-width:48px; min-height:20px; pointer-events:auto; color:#000; outline:none; }
-    .img-box { position:absolute; border:1px solid rgba(0,0,0,0.06); pointer-events:auto; background-size:cover; background-position:center; }
-    .dragger { position:absolute; right:6px; bottom:6px; width:12px; height:12px; background:var(--accent); border-radius:2px; cursor:se-resize; }
-    .controls-top { position:absolute; left:8px; top:8px; z-index:60; }
-    .page-wrap .btn { font-size:12px; padding:4px 6px; }
-
-    /* responsive tweaks */
-    @media (max-width:900px) {
-      .icon-box{ width:56px; height:56px; font-size:22px; }
-      .hero { padding:18px; }
-      #pdfPreview { justify-content:center; }
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>PDF Editor — Prototype</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<style>
+  body{background:#0b1220;color:#eaf4fb;font-family:Inter,Arial;margin:0;padding:0}
+  .topbar{background:#071026;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.03)}
+  .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#eaf4fb}
+  .container-main{display:flex;gap:12px;padding:18px}
+  .left{width:220px}
+  .center{flex:1;min-height:70vh;background:#0f1b2a;padding:12px;border-radius:8px}
+  .right{width:320px}
+  #pdfPreview{background:#fff;padding:14px;border-radius:8px;color:#000;display:flex;flex-wrap:wrap;gap:12px;align-items:flex-start}
+  .page-wrap{position:relative;border:1px solid #ddd;background:#fff;border-radius:6px;overflow:visible}
+  .base-canvas{display:block}
+  .overlay{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:auto}
+  .text-box{position:absolute;padding:6px;border:1px dashed rgba(0,0,0,0.12);background:transparent;color:#000;min-width:60px;min-height:20px}
+  .img-box{position:absolute;border:1px solid rgba(0,0,0,0.06);background-size:cover;background-position:center}
+  .dragger{position:absolute;right:6px;bottom:6px;width:12px;height:12px;background:#06b6d4;border-radius:2px;cursor:se-resize}
+  .thumb{border:1px solid rgba(255,255,255,0.06);padding:6px;margin-bottom:8px;background:transparent;cursor:pointer}
+  .small-muted{color:#9aa6b2;font-size:13px}
+</style>
 </head>
 <body>
-<nav class="navbar navbar-expand-lg navbar-dark">
-  <div class="container">
-    <a class="navbar-brand d-flex gap-2 align-items-center" href="#" data-route="home">
-      <div class="icon-box"><i class="bi bi-tools"></i></div>
-      <div><strong>Daily Tools Portal</strong><div class="small-muted" style="font-size:12px">Free client-side utility suite</div></div>
-    </a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"><span class="navbar-toggler-icon"></span></button>
-    <div class="collapse navbar-collapse" id="navMenu">
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item"><a class="nav-link" href="#" data-route="home">Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-route="tools">All Tools</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-route="pdf">PDF Editor</a></li>
-        <li class="nav-item"><a class="nav-link" href="#" data-route="deploy">Deploy</a></li>
-      </ul>
+  <div class="topbar">
+    <div style="display:flex;gap:12px;align-items:center">
+      <strong>PDF Prototype</strong>
+      <div class="small-muted">— Client-side visual editor</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="pdfFile" type="file" accept="application/pdf" class="form-control form-control-sm" style="width:260px">
+      <button id="savePdfBtn" class="btn btn-success btn-sm">Save PDF</button>
     </div>
   </div>
-</nav>
 
-<main class="container py-4">
-  <!-- HOME -->
-  <section id="homePage" class="page active">
-    <div class="row hero align-items-center gx-4">
-      <div class="col-lg-7">
-        <h1 style="font-size:34px; margin-bottom:8px">Daily Tools Portal</h1>
-        <p class="small-muted" style="max-width:680px">A set of privacy-first, client-side browser tools. Main focus: powerful in-browser PDF visual editor — edit directly on the page, then export an exact visual PDF. All core features run locally in your browser.</p>
-        <div class="mt-3 d-flex gap-2 flex-wrap">
-          <button class="btn btn-primary" data-route="pdf">Open PDF Editor</button>
-          <button class="btn btn-outline-light" data-route="tools">Browse Tools</button>
-        </div>
-      </div>
-
-      <div class="col-lg-5">
-        <div class="card p-3 tool-card">
-          <div class="row g-3 text-center">
-            <div class="col-6"><div class="icon-box mx-auto mb-2"><i class="bi bi-file-earmark-pdf"></i></div><div>PDF Editor</div></div>
-            <div class="col-6"><div class="icon-box mx-auto mb-2"><i class="bi bi-cloud-sun"></i></div><div>Weather</div></div>
-            <div class="col-6"><div class="icon-box mx-auto mb-2"><i class="bi bi-currency-exchange"></i></div><div>Currency</div></div>
-            <div class="col-6"><div class="icon-box mx-auto mb-2"><i class="bi bi-image"></i></div><div>Image</div></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TOOLS -->
-  <section id="toolsPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <h3>All Tools</h3>
-      <div><button class="btn btn-sm btn-outline-light" data-route="home">Back to Home</button></div>
-    </div>
-    <div class="row g-3">
-      <!-- Nine tools -->
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="currency"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-currency-exchange"></i></div><div><h5 class="mb-0">Currency Converter</h5><div class="small-muted">Live rates</div></div></div></div></div>
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="weather"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-cloud-sun"></i></div><div><h5 class="mb-0">Weather & AQI</h5><div class="small-muted">Open-Meteo</div></div></div></div></div>
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="unit"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-rulers"></i></div><div><h5 class="mb-0">Unit Converter</h5><div class="small-muted">Length, Weight, Temp</div></div></div></div></div>
-
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="grammar"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-pen"></i></div><div><h5 class="mb-0">Grammar Checker</h5><div class="small-muted">Quick checks</div></div></div></div></div>
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="todo"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-list-check"></i></div><div><h5 class="mb-0">To-Do List</h5><div class="small-muted">LocalStorage</div></div></div></div></div>
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="invoice"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-receipt"></i></div><div><h5 class="mb-0">Invoice Maker</h5><div class="small-muted">Printable</div></div></div></div></div>
-
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="translate"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-translate"></i></div><div><h5 class="mb-0">Translator</h5><div class="small-muted">LibreTranslate (optional)</div></div></div></div></div>
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="bmi"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-heart-pulse"></i></div><div><h5 class="mb-0">BMI Calculator</h5><div class="small-muted">Health</div></div></div></div></div>
-      <div class="col-md-4"><div class="card p-3 tool-card" data-route="image"><div class="d-flex gap-3"><div class="icon-box"><i class="bi bi-image"></i></div><div><h5 class="mb-0">Image Compressor</h5><div class="small-muted">Client-side</div></div></div></div></div>
-    </div>
-  </section>
-
-  <!-- === Individual tool pages (omitted HTML earlier remain same but guarded) === -->
-  <!-- Currency -->
-  <section id="currencyPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Currency Converter</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <div class="row g-2 align-items-center">
-        <div class="col-md-3"><input id="amountField" type="number" class="form-control" value="1"></div>
-        <div class="col-md-3"><select id="fromCur" class="form-select"></select></div>
-        <div class="col-md-3"><select id="toCur" class="form-select"></select></div>
-        <div class="col-md-3 d-flex gap-2"><button class="btn btn-primary" id="convertBtn">Convert</button><button class="btn btn-outline-light" id="swapCur">Swap</button></div>
-      </div>
-      <div class="mt-3"><h4 id="convOut">—</h4><div class="small-muted">Rates from exchangerate.host</div></div>
-    </div>
-  </section>
-
-  <!-- Weather -->
-  <section id="weatherPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Weather & AQI</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <div class="d-flex gap-2"><input id="cityName" class="form-control" placeholder="City name"><button class="btn btn-primary" id="cityBtn">Get</button></div>
-      <div class="mt-3" id="weatherArea">—</div>
-    </div>
-  </section>
-
-  <!-- Unit -->
-  <section id="unitPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Unit Converter</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <div class="row g-2 align-items-center">
-        <div class="col-md-3"><input id="unitVal" type="number" class="form-control" value="1"></div>
-        <div class="col-md-3"><select id="unitCat" class="form-select"><option value="length">Length</option><option value="weight">Weight</option><option value="temp">Temperature</option></select></div>
-        <div class="col-md-3"><select id="unitFrom" class="form-select"></select></div>
-        <div class="col-md-3 d-flex gap-2"><select id="unitTo" class="form-select"></select><button class="btn btn-primary" id="unitConvBtn">Convert</button></div>
-      </div>
-      <div class="mt-3"><h4 id="unitOut">—</h4></div>
-    </div>
-  </section>
-
-  <!-- Grammar -->
-  <section id="grammarPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Grammar Checker</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <textarea id="grammarInput" class="form-control" rows="6" placeholder="Paste text here..."></textarea>
-      <div class="mt-2 d-flex gap-2"><button class="btn btn-primary" id="grammarCheckBtn">Check</button><button class="btn btn-outline-light" id="grammarClear">Clear</button></div>
-      <div class="mt-3" id="grammarOut">—</div>
-    </div>
-  </section>
-
-  <!-- To-Do -->
-  <section id="todoPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>To-Do List</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <div class="input-group mb-3"><input id="todoAdd" class="form-control" placeholder="Add task"><button class="btn btn-primary" id="todoAddBtn">Add</button></div>
-      <ul id="todoUL" class="list-group"></ul>
-      <div class="mt-2 d-flex gap-2"><button class="btn btn-sm btn-outline-danger" id="clearDoneBtn">Clear Done</button><button class="btn btn-sm btn-outline-light" id="clearAllBtn">Clear All</button></div>
-    </div>
-  </section>
-
-  <!-- Invoice -->
-  <section id="invoicePage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Invoice Maker</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <div class="mb-2"><input id="invTo" class="form-control" placeholder="Bill To"></div>
-      <div id="invItems"></div>
-      <div class="d-flex gap-2 mt-2"><button class="btn btn-sm btn-outline-success" id="invAddItem">Add Item</button><button class="btn btn-primary" id="invGen">Generate</button><button class="btn btn-outline-light" id="invDownload">Download PDF</button></div>
-      <div id="invPreview" class="mt-3"></div>
-    </div>
-  </section>
-
-  <!-- Translator -->
-  <section id="translatePage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Translator</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <textarea id="transIn" class="form-control" rows="4" placeholder="Text to translate"></textarea>
-      <div class="d-flex gap-2 mt-2"><select id="transLang" class="form-select" style="width:160px"><option value="hi">Hindi</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option></select><button class="btn btn-primary" id="transBtn">Translate</button></div>
-      <div class="mt-3" id="transOut">—</div>
-    </div>
-  </section>
-
-  <!-- BMI -->
-  <section id="bmiPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>BMI Calculator</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <div class="row g-2"><div class="col-md-4"><input id="heightCm" class="form-control" placeholder="Height (cm)" type="number"></div><div class="col-md-4"><input id="weightKg" class="form-control" placeholder="Weight (kg)" type="number"></div><div class="col-md-4"><select id="sexSel" class="form-select"><option value="male">Male</option><option value="female">Female</option></select></div></div>
-      <div class="row g-2 mt-2"><div class="col-md-4"><input id="ageIn" class="form-control" placeholder="Age" type="number"></div><div class="col-md-4"><select id="actSel" class="form-select"><option value="1.2">Sedentary</option><option value="1.375">Light</option><option value="1.55">Moderate</option><option value="1.725">Active</option></select></div><div class="col-md-4 d-flex"><button class="btn btn-primary ms-auto" id="calcBmiBtn">Calculate</button></div></div>
-      <div class="mt-3"><h4 id="bmiOut">—</h4><div class="small-muted" id="calOut">—</div></div>
-    </div>
-  </section>
-
-  <!-- Image -->
-  <section id="imagePage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3"><h3>Image Compressor</h3><div><button class="btn btn-sm btn-outline-light" data-route="tools">Back</button></div></div>
-    <div class="card p-3">
-      <input id="imgFile" type="file" accept="image/*" class="form-control mb-2">
-      <div class="d-flex gap-2 mb-2"><select id="imgFormat" class="form-select" style="width:140px"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select>
-      <input id="imgQuality" type="range" min="10" max="100" value="80" class="form-range" style="width:180px"></div>
-      <div><button class="btn btn-primary" id="imgCompressBtn">Compress & Download</button></div>
-      <div class="mt-2 small-muted" id="imgInfoArea">—</div>
-    </div>
-  </section>
-
-  <!-- PDF editor (main focus) -->
-  <section id="pdfPage" class="page">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-      <div class="d-flex gap-2 align-items-center flex-wrap">
-        <input id="pdfFile" type="file" accept="application/pdf" class="form-control" style="width:240px">
-        <input id="pdfMerge" type="file" accept="application/pdf" multiple class="form-control" style="width:240px">
-        <button class="btn btn-outline-light" id="mergeBtn">Merge PDFs</button>
-        <button class="btn btn-outline-light" id="clearAllAnnotations">Clear All Annotations</button>
-      </div>
-
-      <div class="d-flex gap-2 toolbar align-items-center">
-        <select id="toolMode" class="form-select" style="width:150px">
-          <option value="select">Select/Move</option>
-          <option value="text">Add Text</option>
-          <option value="image">Add Image</option>
-          <option value="brush">Brush</option>
-          <option value="eraser">Eraser</option>
-        </select>
-        <input id="fontSize" type="number" class="form-control" value="18" style="width:90px" title="Font size">
-        <select id="fontFamily" class="form-select" style="width:160px"><option>Arial</option><option>Times New Roman</option><option>Roboto</option><option>Helvetica</option></select>
-        <input type="color" id="colorPicker" value="#000000" style="width:46px;height:40px;border-radius:6px;border:none">
-        <button class="btn btn-success" id="savePdfBtn">Save & Download</button>
-      </div>
+  <div class="container-main">
+    <div class="left">
+      <div class="mb-2"><button id="toolSelect" class="btn btn-ghost btn-sm w-100">Select / Move</button></div>
+      <div class="mb-2"><button id="toolText" class="btn btn-ghost btn-sm w-100">Add Text</button></div>
+      <div class="mb-2"><button id="toolImage" class="btn btn-ghost btn-sm w-100">Add Image</button></div>
+      <div class="mb-2"><button id="toolBrush" class="btn btn-ghost btn-sm w-100">Brush</button></div>
+      <div class="mb-2"><button id="toolEraser" class="btn btn-ghost btn-sm w-100">Eraser</button></div>
+      <hr style="border-color:rgba(255,255,255,0.03)">
+      <div class="small-muted mb-2">Thumbnails</div>
+      <div id="thumbs"></div>
     </div>
 
-    <div id="editorArea" class="card p-3">
-      <div id="pdfPreview" aria-live="polite">No PDF loaded — upload to begin.</div>
+    <div class="center">
+      <div id="pdfPreview">No PDF loaded — upload a PDF</div>
     </div>
 
-    <div class="mt-3 d-flex gap-2">
-      <button class="btn btn-outline-secondary" id="undoBtn">Undo</button>
-      <button class="btn btn-outline-secondary" id="redoBtn">Redo</button>
-      <button class="btn btn-outline-danger" id="clearAuditBtn">Clear Audit</button>
-      <button class="btn btn-outline-light" id="showAuditBtn">Show Audit</button>
+    <div class="right">
+      <div class="mb-2"><label class="small-muted">Font size</label><input id="fontSize" type="number" value="18" class="form-control form-control-sm"></div>
+      <div class="mb-2"><label class="small-muted">Color</label><input id="colorPicker" type="color" value="#000000" class="form-control form-control-sm" style="height:34px"></div>
+      <div class="mb-2"><label class="small-muted">Brush size</label><input id="brushSize" type="range" min="1" max="40" value="4" class="form-range"></div>
+      <div class="mt-3"><button id="undoBtn" class="btn btn-ghost btn-sm w-100">Undo</button></div>
+      <div class="mt-2"><button id="redoBtn" class="btn btn-ghost btn-sm w-100">Redo</button></div>
     </div>
+  </div>
 
-    <div class="mt-3 small-muted">Tip: Use the <strong>Brush</strong> for freehand drawing, <strong>Eraser</strong> to erase strokes. Text boxes keep visual font/size; saved PDF is rasterized for exact visual fidelity.</div>
-  </section>
-
-  <!-- Deploy -->
-  <section id="deployPage" class="page">
-    <h3>Deploy to GitHub Pages</h3>
-    <div class="card p-3 mt-2">
-      <ol>
-        <li>Create a GitHub repository (public).</li>
-        <li>Upload <code>index.html</code> (this file) to the repo root.</li>
-        <li>Settings → Pages → Branch: <code>main</code>, folder: <code>/ (root)</code>. Save.</li>
-        <li>Wait ~1 minute and open: <code>https://&lt;username&gt;.github.io/&lt;repo&gt;/</code></li>
-      </ol>
-      <p class="small-muted">Alternatively, run (locally) <code>git init</code>, <code>git add .</code>, <code>git commit -m "site"</code>, <code>git remote add origin &lt;url&gt;</code>, <code>git push -u origin main</code>.</p>
-    </div>
-  </section>
-
-</main>
-
-<footer class="text-center py-4 small-muted">Made with ❤️ — Daily Tools Portal</footer>
-
-<!-- Libraries -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
 
 <script>
-/* ===== Helpers ===== */
+/* Simple prototype JS */
 const $ = id => document.getElementById(id);
-function downloadBlob(blob, name){
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name || 'file';
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-function escapeHtml(s){
-  if (s == null) return '';
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
-/* ===== Simple SPA routing ===== */
-function showPage(route){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  const id = route + 'Page';
-  const el = document.getElementById(id);
-  if(el) el.classList.add('active');
-  window.scrollTo(0,0);
-}
-document.addEventListener('click', e=>{
-  const el = e.target.closest('[data-route]');
-  if(!el) return;
-  e.preventDefault();
-  const route = el.dataset.route;
-  if(route) showPage(route);
-});
-
-/* ===== Tools Implementation ===== */
-
-/* --- Currency --- */
-async function initCurrencies(){
-  try{
-    const fromCur = $('fromCur'), toCur = $('toCur');
-    if(!fromCur || !toCur) return;
-    fromCur.innerHTML = '<option>Loading...</option>';
-    toCur.innerHTML = '<option>Loading...</option>';
-    const r = await fetch('https://api.exchangerate.host/symbols');
-    const j = await r.json();
-    const syms = j && j.symbols ? j.symbols : null;
-    fromCur.innerHTML = ''; toCur.innerHTML = '';
-    if(syms){
-      Object.keys(syms).sort().forEach(k=>{
-        fromCur.add(new Option(k + ' — ' + (syms[k].description||k), k));
-        toCur.add(new Option(k + ' — ' + (syms[k].description||k), k));
-      });
-    } else {
-      const fallback = { USD:'United States Dollar', EUR:'Euro', INR:'Indian Rupee', GBP:'British Pound', JPY:'Japanese Yen' };
-      Object.keys(fallback).forEach(k=>{
-        fromCur.add(new Option(k + ' — ' + fallback[k], k));
-        toCur.add(new Option(k + ' — ' + fallback[k], k));
-      });
-    }
-    fromCur.value = fromCur.value || 'USD';
-    toCur.value = toCur.value || 'INR';
-  }catch(e){
-    console.error('Currency init', e);
-  }
-}
-initCurrencies();
-
-$('convertBtn')?.addEventListener('click', async ()=>{
-  const f = $('fromCur')?.value, t = $('toCur')?.value, a = parseFloat($('amountField')?.value)||0;
-  if(!f || !t) return;
-  try{
-    const r = await fetch(`https://api.exchangerate.host/convert?from=${encodeURIComponent(f)}&to=${encodeURIComponent(t)}&amount=${a}`);
-    const j = await r.json();
-    if(j && typeof j.result !== 'undefined'){
-      $('convOut').textContent = `${j.query.amount} ${f} = ${j.result} ${t} (rate ${j.info.rate})`;
-    } else {
-      $('convOut').textContent = 'Conversion failed';
-    }
-  }catch(e){
-    console.error(e);
-    $('convOut').textContent = 'Conversion failed';
-  }
-});
-$('swapCur')?.addEventListener('click', ()=>{
-  const f = $('fromCur')?.value;
-  if(!$('fromCur') || !$('toCur')) return;
-  $('fromCur').value = $('toCur').value;
-  $('toCur').value = f;
-});
-
-/* --- Weather --- */
-$('cityBtn')?.addEventListener('click', async ()=>{
-  const city = $('cityName')?.value?.trim();
-  if(!city) return alert('Enter city');
-  try{
-    const geo = await fetch('https://nominatim.openstreetmap.org/search?format=json&q='+encodeURIComponent(city)+'&limit=1');
-    const gj = await geo.json();
-    if(!gj || !gj[0]) return $('weatherArea').textContent = 'Location not found';
-    const lat = gj[0].lat, lon = gj[0].lon;
-    const w = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`);
-    const wj = await w.json();
-    if(!wj || !wj.current_weather) return $('weatherArea').textContent='No data';
-    const cw = wj.current_weather;
-    $('weatherArea').innerHTML = `<strong>${escapeHtml(city)}</strong>: ${cw.temperature} °C, wind ${cw.windspeed} m/s`;
-  }catch(e){
-    console.error(e);
-    $('weatherArea').textContent = 'Error fetching weather';
-  }
-});
-
-/* --- Unit converter --- */
-function populateUnit(){
-  const unitCat = $('unitCat'), unitFrom = $('unitFrom'), unitTo = $('unitTo');
-  if(!unitFrom || !unitTo || !unitCat) return;
-  unitFrom.innerHTML = ''; unitTo.innerHTML = '';
-  if(unitCat.value === 'length'){
-    [['Meters (m)','m'],['Feet (ft)','ft'],['Kilometers (km)','km']].forEach(k=>{ unitFrom.add(new Option(k[0],k[1])); unitTo.add(new Option(k[0],k[1])); });
-  } else if(unitCat.value === 'weight'){
-    [['Kilogram (kg)','kg'],['Pound (lb)','lb']].forEach(k=>{ unitFrom.add(new Option(k[0],k[1])); unitTo.add(new Option(k[0],k[1])); });
-  } else {
-    [['Celsius (°C)','c'],['Fahrenheit (°F)','f']].forEach(k=>{ unitFrom.add(new Option(k[0],k[1])); unitTo.add(new Option(k[0],k[1])); });
-  }
-}
-populateUnit();
-$('unitCat')?.addEventListener('change', populateUnit);
-$('unitConvBtn')?.addEventListener('click', ()=>{
-  const v = parseFloat($('unitVal')?.value) || 0;
-  const f = $('unitFrom')?.value, t = $('unitTo')?.value;
-  let out = '—';
-  if(f === t) out = v + ' ' + f;
-  else if(f === 'm' && t === 'ft') out = (v*3.280839895).toFixed(4) + ' ft';
-  else if(f === 'ft' && t === 'm') out = (v/3.280839895).toFixed(4) + ' m';
-  else if(f === 'kg' && t === 'lb') out = (v*2.2046226218).toFixed(4) + ' lb';
-  else if(f === 'lb' && t === 'kg') out = (v/2.2046226218).toFixed(4) + ' kg';
-  else if(f === 'c' && t === 'f') out = (v*9/5+32).toFixed(2) + ' °F';
-  else if(f === 'f' && t === 'c') out = ((v-32)*5/9).toFixed(2) + ' °C';
-  $('unitOut').textContent = out;
-});
-
-/* --- Grammar (light) --- */
-$('grammarCheckBtn')?.addEventListener('click', ()=>{
-  const txt = $('grammarInput')?.value || '';
-  if(!txt.trim()) return alert('Paste some text');
-  const issues = [];
-  const words = txt.trim().split(/\s+/);
-  for(let i=1;i<words.length;i++){
-    if(words[i].toLowerCase() === words[i-1].toLowerCase()) issues.push(`Repeated word: "${words[i]}" at position ${i}`);
-  }
-  const sents = txt.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean);
-  sents.forEach((s, idx)=>{ if(s.split(' ').length > 40) issues.push(`Long sentence ${idx+1} (${s.split(' ').length} words)`); });
-  sents.forEach((s, idx)=>{ if(s[0] && s[0] === s[0].toLowerCase()) issues.push(`Sentence ${idx+1} starts with lowercase`); });
-  $('grammarOut').innerHTML = issues.length ? ('<ul>' + issues.map(i=>'<li>'+escapeHtml(i)+'</li>').join('') + '</ul>') : 'No obvious issues found (quick checks).';
-});
-$('grammarClear')?.addEventListener('click', ()=>{ if($('grammarInput')) $('grammarInput').value = ''; if($('grammarOut')) $('grammarOut').textContent = '—'; });
-
-/* --- To-Do --- */
-function loadTodo(){
-  const arr = JSON.parse(localStorage.getItem('dt_todos') || '[]');
-  const todoUL = $('todoUL');
-  if(!todoUL) return;
-  todoUL.innerHTML = '';
-  arr.forEach((t,i)=>{
-    const li = document.createElement('li');
-    li.className = 'list-group-item d-flex justify-content-between align-items-center';
-    li.innerHTML = `<div><input type='checkbox' class='form-check-input me-2' data-i='${i}' ${t.done? 'checked':''}> <span ${t.done? 'style="text-decoration:line-through"':''}>${escapeHtml(t.text)}</span></div><div><button class='btn btn-sm btn-outline-danger del-todo' data-i='${i}'>Del</button></div>`;
-    todoUL.appendChild(li);
-  });
-}
-loadTodo();
-$('todoAddBtn')?.addEventListener('click', ()=>{
-  const v = $('todoAdd')?.value?.trim();
-  if(!v) return;
-  const arr = JSON.parse(localStorage.getItem('dt_todos') || '[]');
-  arr.push({text:v, done:false});
-  localStorage.setItem('dt_todos', JSON.stringify(arr));
-  if($('todoAdd')) $('todoAdd').value = '';
-  loadTodo();
-});
-document.addEventListener('click', (e)=>{
-  if(e.target.matches('.del-todo')){
-    const i = parseInt(e.target.dataset.i);
-    const arr = JSON.parse(localStorage.getItem('dt_todos') || '[]');
-    arr.splice(i,1);
-    localStorage.setItem('dt_todos', JSON.stringify(arr)); loadTodo();
-  }
-  if(e.target.matches('input[type=checkbox]')){
-    const i = parseInt(e.target.dataset.i);
-    const arr = JSON.parse(localStorage.getItem('dt_todos') || '[]');
-    arr[i].done = e.target.checked;
-    localStorage.setItem('dt_todos', JSON.stringify(arr)); loadTodo();
-  }
-});
-$('clearDoneBtn')?.addEventListener('click', ()=>{ const arr = JSON.parse(localStorage.getItem('dt_todos') || '[]').filter(t=>!t.done); localStorage.setItem('dt_todos', JSON.stringify(arr)); loadTodo(); });
-$('clearAllBtn')?.addEventListener('click', ()=>{ localStorage.removeItem('dt_todos'); loadTodo(); });
-
-/* --- Invoice --- */
-const invItems = $('invItems'), invPreview = $('invPreview');
-function addInvRow(desc='', qty=1, price=0){
-  if(!invItems) return;
-  const row = document.createElement('div');
-  row.className = 'd-flex gap-2 mb-2';
-  row.innerHTML = `<input class='form-control item-desc' placeholder='Description' value='${escapeHtml(desc)}'> <input class='form-control item-qty' type='number' value='${qty}' style='width:80px'> <input class='form-control item-price' type='number' value='${price}' style='width:120px'> <button class='btn btn-outline-danger remove-item'>×</button>`;
-  invItems.appendChild(row);
-}
-if(invItems) addInvRow();
-$('invAddItem')?.addEventListener('click', ()=> addInvRow());
-invItems?.addEventListener('click',(e)=>{ if(e.target.matches('.remove-item')) e.target.closest('div').remove(); });
-$('invGen')?.addEventListener('click', ()=>{
-  if(!invItems) return;
-  const billTo = $('invTo')?.value || 'Customer';
-  const rows = [...invItems.querySelectorAll('div')];
-  let total = 0;
-  let html = `<div style="color:#000;background:#fff;padding:10px"><h4>Invoice</h4><div><strong>Bill To:</strong> ${escapeHtml(billTo)}</div><table style='width:100%;border-collapse:collapse;margin-top:8px'><thead><tr><th style='text-align:left'>#</th><th style='text-align:left'>Description</th><th>Qty</th><th>Price</th><th>Amount</th></tr></thead><tbody>`;
-  rows.forEach((r,i)=>{
-    const d = r.querySelector('.item-desc').value || '-';
-    const q = parseFloat(r.querySelector('.item-qty').value) || 0;
-    const p = parseFloat(r.querySelector('.item-price').value) || 0;
-    const amt = q*p; total += amt;
-    html += `<tr><td>${i+1}</td><td>${escapeHtml(d)}</td><td style='text-align:center'>${q}</td><td style='text-align:right'>${p.toFixed(2)}</td><td style='text-align:right'>${amt.toFixed(2)}</td></tr>`;
-  });
-  html += `</tbody></table><div style='text-align:right;margin-top:8px'><strong>Total: ₹ ${total.toFixed(2)}</strong></div></div>`;
-  invPreview.innerHTML = html;
-});
-$('invDownload')?.addEventListener('click', ()=>{
-  if(!invPreview || !invPreview.innerHTML.trim()){ alert('Generate invoice first'); return; }
-  if(typeof html2pdf === 'undefined'){ alert('html2pdf library not loaded'); return; }
-  const opt = { margin:0.5, filename:'invoice.pdf', image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2}, jsPDF:{unit:'in',format:'a4',orientation:'portrait'} };
-  html2pdf().set(opt).from(invPreview).save();
-});
-
-/* --- Translator --- */
-$('transBtn')?.addEventListener('click', async ()=>{
-  const txt = $('transIn')?.value?.trim(), lang = $('transLang')?.value;
-  if(!txt) return alert('Enter text');
-  try{
-    const res = await fetch('https://libretranslate.de/translate', {
-      method:'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ q: txt, source: 'auto', target: lang, format: 'text' })
-    });
-    const j = await res.json();
-    $('transOut').textContent = j.translatedText || 'Translation failed';
-  }catch(e){
-    console.error('translate', e);
-    $('transOut').textContent = 'Translation failed (CORS or network)';
-  }
-});
-
-/* --- BMI --- */
-$('calcBmiBtn')?.addEventListener('click', ()=>{
-  const h = parseFloat($('heightCm')?.value)||0, w = parseFloat($('weightKg')?.value)||0;
-  const sex = $('sexSel')?.value || 'male', age = parseFloat($('ageIn')?.value)||30, act = parseFloat($('actSel')?.value)||1.2;
-  if(!h||!w) return alert('Enter height and weight');
-  const bmi = w/((h/100)**2);
-  let status = ''; if(bmi<18.5) status='Underweight'; else if(bmi<25) status='Normal'; else if(bmi<30) status='Overweight'; else status='Obese';
-  $('bmiOut').textContent = `BMI: ${bmi.toFixed(2)} — ${status}`;
-  const bmr = (sex==='male') ? (10*w + 6.25*h - 5*age + 5) : (10*w + 6.25*h - 5*age - 161);
-  const cal = Math.round(bmr * act);
-  $('calOut').textContent = `Estimated calories: ${cal} kcal/day`;
-});
-
-/* --- Image compressor --- */
-$('imgCompressBtn')?.addEventListener('click', ()=>{
-  const f = $('imgFile')?.files && $('imgFile').files[0];
-  if(!f) return alert('Select an image first');
-  const out = $('imgFormat')?.value || 'image/jpeg';
-  const q = parseInt($('imgQuality')?.value || 80) / 100;
-  const reader = new FileReader();
-  reader.onload = (ev) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const maxW = 1600; let w = img.width, h = img.height;
-      if(w > maxW){ h = Math.round(h*(maxW/w)); w = maxW; }
-      canvas.width = w; canvas.height = h;
-      const ctx = canvas.getContext('2d'); ctx.drawImage(img,0,0,w,h);
-      canvas.toBlob((blob)=>{
-        if(!blob) return alert('Compression failed');
-        downloadBlob(blob, 'compressed.' + out.split('/')[1]);
-        if($('imgInfoArea')) $('imgInfoArea').textContent = `Original ${Math.round(f.size/1024)} KB — Compressed ${Math.round(blob.size/1024)} KB`;
-      }, out, q);
-    };
-    img.src = ev.target.result;
-  };
-  reader.readAsDataURL(f);
-});
-
-/* ===== Advanced PDF Editor (visual export) ===== */
-let pdfBuffer = null;
-let pages = [];
+let pages = []; // {canvas, draw, overlay, wrap, annotations}
+let mode = 'select';
 let undoStack = [], redoStack = [];
-let audit = JSON.parse(localStorage.getItem('dt_pdf_audit') || '[]');
-function logAudit(a){ audit.push({ time: new Date().toISOString(), action: a }); localStorage.setItem('dt_pdf_audit', JSON.stringify(audit)); }
 
-/* Ensure pdf worker loaded safely */
-async function ensurePdfWorker(){
-  if(!window.pdfjsLib) return false;
-  try{
-    const workerUrl = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-    // Attempt to fetch worker and create blob URL (CORS-safe)
-    const r = await fetch(workerUrl);
-    if(!r.ok) throw new Error('worker fetch failed');
-    const text = await r.text();
-    const blob = new Blob([text], {type: 'application/javascript'});
-    pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
-    return true;
-  }catch(e){
-    console.warn('worker blob failed', e);
-    // fallback to CDN URL (may still fail on some hosts due to CORS)
-    try{ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js'; return true; }catch(err){ console.error(err); return false; }
-  }
+$('toolSelect').onclick = ()=> setMode('select');
+$('toolText').onclick = ()=> setMode('text');
+$('toolImage').onclick = ()=> setMode('image');
+$('toolBrush').onclick = ()=> setMode('brush');
+$('toolEraser').onclick = ()=> setMode('eraser');
+
+function setMode(m){
+  mode = m;
+  document.querySelectorAll('.btn-ghost').forEach(b=>b.classList.remove('active'));
+  if(m==='text') $('toolText').classList.add('active');
+  if(m==='image') $('toolImage').classList.add('active');
+  if(m==='brush') $('toolBrush').classList.add('active');
+  if(m==='eraser') $('toolEraser').classList.add('active');
 }
 
-/* Render PDF into canvas + overlay containers */
+/* pdf.js worker */
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+/* Load PDF */
+$('pdfFile').addEventListener('change', async (e)=>{
+  const f = e.target.files && e.target.files[0]; if(!f) return;
+  const buf = await f.arrayBuffer();
+  renderPdf(buf);
+});
+
 async function renderPdf(buffer){
   pages = [];
-  const preview = $('pdfPreview');
-  if(!preview) return;
-  preview.innerHTML = '';
-  if(!window.pdfjsLib){
-    // If pdf.js missing, fallback to iframe view
-    const blob = new Blob([buffer], {type:'application/pdf'});
-    const url = URL.createObjectURL(blob);
-    const iframe = document.createElement('iframe');
-    iframe.src = url; iframe.width = '100%'; iframe.height = 600;
-    preview.appendChild(iframe);
-    logAudit('PDF displayed in iframe (pdf.js missing)');
-    return;
-  }
-  await ensurePdfWorker();
-  const loading = pdfjsLib.getDocument({ data: buffer });
-  const pdf = await loading.promise;
-  const total = pdf.numPages;
-  for(let i=1;i<=total;i++){
+  $('pdfPreview').innerHTML = '';
+  $('thumbs').innerHTML = '';
+  if(!window.pdfjsLib){ $('pdfPreview').textContent = 'pdf.js not available'; return; }
+  const loading = pdfjsLib.getDocument({data:buffer}); const pdf = await loading.promise;
+  for(let i=1;i<=pdf.numPages;i++){
     const pg = await pdf.getPage(i);
-    // compute scale for readable width
-    const vp = pg.getViewport({ scale: 1 });
-    const targetWidth = Math.min(1000, Math.max(600, window.innerWidth - 160));
-    const scale = Math.min(1.5, targetWidth / vp.width);
-    const rvp = pg.getViewport({ scale });
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
+    const viewport = pg.getViewport({scale:1});
+    const targetW = Math.min(900, window.innerWidth - 360);
+    const scale = Math.min(1.3, targetW / viewport.width);
+    const rvp = pg.getViewport({scale});
+    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
     canvas.width = rvp.width; canvas.height = rvp.height;
-    await pg.render({ canvasContext: ctx, viewport: rvp }).promise;
+    await pg.render({canvasContext:ctx, viewport:rvp}).promise;
 
-    // wrap
-    const wrap = document.createElement('div');
-    wrap.className = 'page-wrap';
-    wrap.style.width = canvas.width + 'px';
-    wrap.style.height = canvas.height + 'px';
-    wrap.style.margin = '8px';
-    canvas.className = 'base-canvas';
-    wrap.appendChild(canvas);
+    const wrap = document.createElement('div'); wrap.className = 'page-wrap';
+    wrap.style.width = canvas.width + 'px'; wrap.style.height = canvas.height + 'px';
+    const overlay = document.createElement('div'); overlay.className = 'overlay'; overlay.style.width = canvas.width + 'px'; overlay.style.height = canvas.height + 'px';
+    const draw = document.createElement('canvas'); draw.width = canvas.width; draw.height = canvas.height; draw.style.position='absolute'; draw.style.left='0'; draw.style.top='0';
+    wrap.appendChild(canvas); wrap.appendChild(overlay); wrap.appendChild(draw);
+    $('pdfPreview').appendChild(wrap);
 
-    // overlay (for editable elements)
-    const overlay = document.createElement('div');
-    overlay.className = 'overlay';
-    overlay.style.width = canvas.width + 'px';
-    overlay.style.height = canvas.height + 'px';
-    overlay.style.left = 0; overlay.style.top = 0;
-    wrap.appendChild(overlay);
+    const obj = { canvas, ctx, draw, drawCtx: draw.getContext('2d'), overlay, wrap, annotations:{texts:[],images:[],strokes:[]} };
+    pages.push(obj);
 
-    // drawing layer (canvas)
-    const draw = document.createElement('canvas');
-    draw.className = 'canvas-layer';
-    draw.width = canvas.width; draw.height = canvas.height;
-    draw.style.position = 'absolute'; draw.style.left = '0'; draw.style.top = '0';
-    wrap.appendChild(draw);
+    // thumbnail
+    const thumb = document.createElement('div'); thumb.className='thumb'; thumb.textContent = 'Page '+i; thumb.onclick = ()=> { wrap.scrollIntoView({behavior:'smooth',block:'center'}); };
+    $('thumbs').appendChild(thumb);
 
-    // controls
-    const controls = document.createElement('div');
-    controls.className = 'controls-top';
-    controls.innerHTML = `<div class='btn-group'><button class='btn btn-sm btn-outline-secondary rotatePage'>⟲</button><button class='btn btn-sm btn-outline-danger delPage'>Delete</button></div>`;
-    wrap.appendChild(controls);
-
-    preview.appendChild(wrap);
-    const pageObj = {
-      canvas, ctx,
-      draw, drawCtx: draw.getContext('2d'),
-      overlay, wrap,
-      width: canvas.width, height: canvas.height,
-      rotation: 0, deleted: false,
-      annotations: { texts: [], images: [], strokes: [] }
-    };
-    pages.push(pageObj);
-    const idx = pages.length - 1;
-
-    // rotate
-    controls.querySelector('.rotatePage')?.addEventListener('click', ()=>{
-      pageObj.rotation = (pageObj.rotation + 90) % 360;
-      pageObj.wrap.style.transform = `rotate(${pageObj.rotation}deg)`;
-      logAudit('Rotate page ' + (idx+1));
-      pushUndo();
-    });
-
-    // delete toggle
-    controls.querySelector('.delPage')?.addEventListener('click', ()=>{
-      pageObj.deleted = !pageObj.deleted;
-      pageObj.wrap.style.opacity = pageObj.deleted ? 0.4 : 1;
-      logAudit((pageObj.deleted ? 'Marked delete' : 'Unmarked delete') + ' page ' + (idx+1));
-      pushUndo();
-    });
-
-    // overlay click to add text/image depending on tool
+    // overlay click
     overlay.addEventListener('pointerdown', (ev)=>{
-      const mode = $('toolMode')?.value || 'select';
       const rect = overlay.getBoundingClientRect();
-      const x = ev.clientX - rect.left;
-      const y = ev.clientY - rect.top;
-      if(mode === 'text') createTextBox(idx, x, y);
-      else if(mode === 'image') promptImageThenPlace(idx, x, y);
+      const x = ev.clientX - rect.left, y = ev.clientY - rect.top;
+      if(mode==='text') createTextBox(obj,x,y);
+      else if(mode==='image') promptImageThenPlace(obj,x,y);
     });
 
-    setupDrawingForPage(idx);
+    setupDrawing(obj);
   }
-  logAudit('Loaded PDF with ' + pages.length + ' pages');
-}
-
-/* create text box overlay */
-function createTextBox(pageIndex, x, y, text = 'Text', size = null, family = null){
-  const p = pages[pageIndex];
-  if(!p) return;
-  const box = document.createElement('div');
-  box.className = 'text-box';
-  box.contentEditable = true;
-  box.style.left = x + 'px'; box.style.top = y + 'px';
-  box.style.fontSize = (size || parseInt($('fontSize')?.value || 18)) + 'px';
-  box.style.fontFamily = family || ($('fontFamily')?.value || 'Arial');
-  box.style.color = $('colorPicker')?.value || '#000';
-  box.innerText = text;
-  box.style.zIndex = 40;
-  box.style.pointerEvents = 'auto';
-  p.overlay.appendChild(box);
-
-  const dragger = document.createElement('div');
-  dragger.className = 'dragger';
-  box.appendChild(dragger);
-
-  makeDraggable(box);
-  dragger.addEventListener('pointerdown', startResize.bind(null, box));
-  p.annotations.texts.push({ el: box });
-  box.addEventListener('input', ()=> pushUndo());
-  box.addEventListener('blur', ()=> logAudit('Edit text'));
-  logAudit('Added text');
   pushUndo();
-  return box;
 }
 
-/* prompt user to pick an image then place as overlay */
-function promptImageThenPlace(pageIndex, x, y){
-  const inp = document.createElement('input');
-  inp.type = 'file'; inp.accept = 'image/*';
+/* create text box */
+function createTextBox(pObj,x,y){
+  const el = document.createElement('div'); el.className='text-box'; el.contentEditable = true;
+  el.style.left = x+'px'; el.style.top = y+'px'; el.style.fontSize = (parseInt($('fontSize').value)||18)+'px'; el.style.color = $('colorPicker').value;
+  el.innerText = 'Text';
+  pObj.overlay.appendChild(el);
+  const dragger = document.createElement('div'); dragger.className='dragger'; el.appendChild(dragger);
+  makeDraggable(el);
+  dragger.addEventListener('pointerdown', startResize.bind(null,el));
+  pObj.annotations.texts.push({el});
+  el.addEventListener('input', pushUndo);
+  pushUndo();
+}
+
+/* image place */
+function promptImageThenPlace(pObj,x,y){
+  const inp = document.createElement('input'); inp.type='file'; inp.accept='image/*';
   inp.onchange = ()=>{
-    const f = inp.files && inp.files[0];
-    if(!f) return;
-    const reader = new FileReader();
-    reader.onload = (ev)=>{
-      const img = new Image();
-      img.onload = ()=>{
-        const p = pages[pageIndex];
-        if(!p) return;
-        const wrap = document.createElement('div');
-        wrap.className = 'img-box';
-        wrap.style.left = x + 'px'; wrap.style.top = y + 'px';
-        const maxW = 300;
-        const w = Math.min(maxW, img.width);
-        const h = Math.round(img.height * (w / img.width));
-        wrap.style.width = w + 'px'; wrap.style.height = h + 'px';
-        wrap.style.backgroundImage = `url(${ev.target.result})`;
-        wrap.style.zIndex = 45;
-        p.overlay.appendChild(wrap);
-        const dragger = document.createElement('div'); dragger.className = 'dragger'; wrap.appendChild(dragger);
-        makeDraggable(wrap);
-        dragger.addEventListener('pointerdown', startResize.bind(null, wrap));
-        p.annotations.images.push({ el: wrap, src: ev.target.result });
-        logAudit('Added image');
+    const f = inp.files && inp.files[0]; if(!f) return;
+    const r = new FileReader(); r.onload = (ev)=>{
+      const img = new Image(); img.onload = ()=>{
+        const wrap = document.createElement('div'); wrap.className='img-box'; wrap.style.left = x+'px'; wrap.style.top = y+'px';
+        const w = Math.min(240, img.width); const h = Math.round(img.height*(w/img.width));
+        wrap.style.width = w+'px'; wrap.style.height = h+'px'; wrap.style.backgroundImage = `url(${ev.target.result})`;
+        pObj.overlay.appendChild(wrap);
+        const dragger = document.createElement('div'); dragger.className='dragger'; wrap.appendChild(dragger);
+        makeDraggable(wrap); dragger.addEventListener('pointerdown', startResize.bind(null,wrap));
+        pObj.annotations.images.push({el:wrap, src: ev.target.result});
         pushUndo();
-      };
-      img.src = ev.target.result;
-    };
-    reader.readAsDataURL(f);
+      }; img.src = ev.target.result;
+    }; r.readAsDataURL(f);
   };
   inp.click();
 }
 
-/* make an element draggable (per-element) */
+/* simple draggable */
 function makeDraggable(el){
-  el.style.position = 'absolute';
-  let dragging = false, ox = 0, oy = 0;
-  el.addEventListener('pointerdown', (e)=>{
-    if(e.target.classList.contains('dragger')) return;
-    dragging = true;
-    const rect = el.getBoundingClientRect();
-    ox = e.clientX - rect.left;
-    oy = e.clientY - rect.top;
-    el.setPointerCapture && el.setPointerCapture(e.pointerId);
-  });
-  el.addEventListener('pointermove', (e)=>{
-    if(!dragging) return;
-    try{
-      el.style.left = (e.clientX - ox) + 'px';
-      el.style.top = (e.clientY - oy) + 'px';
-    }catch(err){}
-  });
-  el.addEventListener('pointerup', (e)=>{
-    if(dragging){ dragging = false; pushUndo(); }
-  });
+  el.style.position='absolute';
+  let dragging=false, ox=0, oy=0;
+  el.addEventListener('pointerdown',(e)=>{ if(e.target.classList.contains('dragger')) return; dragging=true; const r=el.getBoundingClientRect(); ox=e.clientX-r.left; oy=e.clientY-r.top; el.setPointerCapture && el.setPointerCapture(e.pointerId); });
+  el.addEventListener('pointermove',(e)=>{ if(!dragging) return; try{ el.style.left = (e.clientX-ox)+'px'; el.style.top = (e.clientY-oy)+'px'; }catch(err){} });
+  el.addEventListener('pointerup',()=>{ if(dragging){ dragging=false; pushUndo(); } });
 }
 
-/* start resizing a target element (from its dragger) */
+/* resize */
 function startResize(target, ev){
   ev.stopPropagation();
-  if(!target) return;
-  target.setPointerCapture && target.setPointerCapture(ev.pointerId);
   const startW = target.clientWidth, startH = target.clientHeight, startX = ev.clientX, startY = ev.clientY;
-  function onMove(e){
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    target.style.width = Math.max(24, startW + dx) + 'px';
-    target.style.height = Math.max(18, startH + dy) + 'px';
-  }
-  function onUp(){
-    document.removeEventListener('pointermove', onMove);
-    document.removeEventListener('pointerup', onUp);
-    pushUndo();
-  }
-  document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', onUp);
+  function onMove(e){ const dx = e.clientX - startX, dy = e.clientY - startY; target.style.width = Math.max(24, startW + dx) + 'px'; target.style.height = Math.max(18, startH + dy) + 'px'; }
+  function onUp(){ document.removeEventListener('pointermove', onMove); document.removeEventListener('pointerup', onUp); pushUndo(); }
+  document.addEventListener('pointermove', onMove); document.addEventListener('pointerup', onUp);
 }
 
-/* drawing setup (brush & eraser) */
-function setupDrawingForPage(index){
-  const p = pages[index];
-  if(!p) return;
-  const canvas = p.draw;
-  const ctx = p.drawCtx;
-  let drawing = false;
-  let last = {x:0,y:0};
-  let currentStroke = [];
-  canvas.style.zIndex = 30;
-
-  canvas.addEventListener('pointerdown', (e)=>{
-    const mode = $('toolMode')?.value || 'select';
-    if(mode !== 'brush' && mode !== 'eraser') return;
-    drawing = true;
-    const r = canvas.getBoundingClientRect();
-    last = { x: e.clientX - r.left, y: e.clientY - r.top };
-    currentStroke = [{ x: last.x, y: last.y }];
-    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
-  });
-
-  canvas.addEventListener('pointermove', (e)=>{
-    if(!drawing) return;
-    const r = canvas.getBoundingClientRect();
-    const x = e.clientX - r.left, y = e.clientY - r.top;
-    const mode = $('toolMode')?.value || 'brush';
-    if(mode === 'brush'){
-      ctx.strokeStyle = $('colorPicker')?.value || '#000';
-      ctx.lineWidth = Math.max(1, parseInt($('fontSize')?.value || 18)/6);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(x, y);
-      ctx.stroke();
-      currentStroke.push({ x, y });
-    } else if(mode === 'eraser'){
-      ctx.clearRect(x-8, y-8, 16, 16);
-    }
-    last = { x, y };
-  });
-
-  canvas.addEventListener('pointerup', (e)=>{
-    if(!drawing) return;
-    drawing = false;
-    if(currentStroke && currentStroke.length){
-      p.annotations.strokes.push({ points: currentStroke, color: $('colorPicker')?.value || '#000', width: Math.max(1, parseInt($('fontSize')?.value || 18)/6) });
-      pushUndo();
-      logAudit('Freehand stroke');
-    }
-  });
+/* drawing */
+function setupDrawing(pObj){
+  const canvas = pObj.draw; const ctx = pObj.drawCtx; let drawing=false, last={x:0,y:0}, stroke=[];
+  canvas.addEventListener('pointerdown',(e)=>{ if(mode!=='brush' && mode!=='eraser') return; drawing=true; const r=canvas.getBoundingClientRect(); last={x:e.clientX-r.left,y:e.clientY-r.top}; stroke=[{x:last.x,y:last.y}]; canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); });
+  canvas.addEventListener('pointermove',(e)=>{ if(!drawing) return; const r=canvas.getBoundingClientRect(); const x=e.clientX-r.left, y=e.clientY-r.top; if(mode==='brush'){ ctx.strokeStyle = $('colorPicker').value; ctx.lineWidth = Math.max(1, parseInt($('brushSize').value)); ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(last.x,last.y); ctx.lineTo(x,y); ctx.stroke(); stroke.push({x,y}); } else if(mode==='eraser'){ ctx.clearRect(x-8,y-8,16,16); } last={x,y}; });
+  canvas.addEventListener('pointerup',()=>{ if(!drawing) return; drawing=false; if(stroke.length){ pObj.annotations.strokes.push({points: stroke, color: $('colorPicker').value, width: parseInt($('brushSize').value)}); pushUndo(); } });
 }
 
-/* Snapshot for undo/redo (serialize minimal annotation state) */
+/* undo/redo (basic serialization of annotations only) */
 function snapshot(){
   try{
     return JSON.stringify(pages.map(p=>({
-      deleted: p.deleted,
-      rotation: p.rotation,
-      annotations: {
-        texts: p.annotations.texts.map(t => {
-          const el = t.el;
-          return { left: el.style.left||'0px', top: el.style.top||'0px', html: el.innerHTML||'', size: el.style.fontSize||'18px', family: el.style.fontFamily||'Arial', color: el.style.color||'#000' };
-        }),
-        images: p.annotations.images.map(i => {
-          const el = i.el;
-          return { left: el.style.left||'0px', top: el.style.top||'0px', width: el.style.width||'100px', height: el.style.height||'100px', src: i.src||'' };
-        }),
-        strokes: p.annotations.strokes || []
+      annotations:{
+        texts:p.annotations.texts.map(t=>({left:t.el.style.left,top:t.el.style.top,html:t.el.innerHTML, size: t.el.style.fontSize, color: t.el.style.color})),
+        images:p.annotations.images.map(i=>({left:i.el.style.left,top:i.el.style.top,width:i.el.style.width,height:i.el.style.height,src:i.src})),
+        strokes:p.annotations.strokes
       }
     })));
-  }catch(e){
-    console.warn('snapshot failed', e);
-    return '[]';
-  }
+  }catch(e){ return '[]'; }
 }
-
-/* Restore snapshot */
-function restoreSnapshot(snap){
+function restore(snap){
   try{
     const data = JSON.parse(snap);
-    data.forEach((pd, idx)=>{
-      if(!pages[idx]) return;
-      pages[idx].deleted = !!pd.deleted;
-      pages[idx].rotation = pd.rotation || 0;
-      pages[idx].wrap.style.opacity = pages[idx].deleted ? 0.4 : 1;
-      pages[idx].wrap.style.transform = `rotate(${pages[idx].rotation}deg)`;
-      // remove existing overlays
-      pages[idx].overlay.querySelectorAll('.text-box,.img-box').forEach(n => n.remove());
-      pages[idx].drawCtx.clearRect(0,0, pages[idx].draw.width, pages[idx].draw.height);
-      pages[idx].annotations.texts = []; pages[idx].annotations.images = []; pages[idx].annotations.strokes = [];
-
-      (pd.annotations.texts || []).forEach(t => {
-        const el = createTextBox(idx, parseFloat(t.left)||0, parseFloat(t.top)||0, '', 0, t.family);
-        if(!el) return;
-        el.style.left = t.left; el.style.top = t.top;
-        el.innerHTML = t.html;
-        el.style.fontSize = t.size;
-        el.style.color = t.color;
-        pages[idx].annotations.texts.push({ el });
-      });
-      (pd.annotations.images || []).forEach(i => {
-        const wrap = document.createElement('div');
-        wrap.className = 'img-box';
-        wrap.style.left = i.left; wrap.style.top = i.top;
-        wrap.style.width = i.width; wrap.style.height = i.height;
-        wrap.style.backgroundImage = `url(${i.src})`;
-        pages[idx].overlay.appendChild(wrap);
-        makeDraggable(wrap);
-        const dragger = document.createElement('div'); dragger.className = 'dragger'; wrap.appendChild(dragger);
-        dragger.addEventListener('pointerdown', startResize.bind(null, wrap));
-        pages[idx].annotations.images.push({ el: wrap, src: i.src });
-      });
-      (pd.annotations.strokes || []).forEach(s => {
-        const ctx = pages[idx].drawCtx;
-        ctx.strokeStyle = s.color || '#000';
-        ctx.lineWidth = s.width || 2;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        s.points.forEach((pt, pi) => { if(pi === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y); });
-        ctx.stroke();
-        pages[idx].annotations.strokes.push(s);
-      });
+    data.forEach((pd, idx)=>{ if(!pages[idx]) return; // remove overlays
+      pages[idx].overlay.querySelectorAll('.text-box,.img-box').forEach(n=>n.remove()); pages[idx].drawCtx.clearRect(0,0,pages[idx].draw.width,pages[idx].draw.height);
+      pages[idx].annotations = {texts:[],images:[],strokes:[]};
+      (pd.annotations.texts||[]).forEach(t=>{ const el = document.createElement('div'); el.className='text-box'; el.contentEditable=true; el.style.left=t.left; el.style.top=t.top; el.style.fontSize=t.size||'18px'; el.style.color=t.color||'#000'; el.innerHTML = t.html||''; pages[idx].overlay.appendChild(el); const dragger=document.createElement('div'); dragger.className='dragger'; el.appendChild(dragger); makeDraggable(el); dragger.addEventListener('pointerdown', startResize.bind(null, el)); pages[idx].annotations.texts.push({el}); });
+      (pd.annotations.images||[]).forEach(i=>{ const wrap = document.createElement('div'); wrap.className='img-box'; wrap.style.left=i.left; wrap.style.top=i.top; wrap.style.width=i.width; wrap.style.height=i.height; wrap.style.backgroundImage=`url(${i.src})`; pages[idx].overlay.appendChild(wrap); const dragger=document.createElement('div'); dragger.className='dragger'; wrap.appendChild(dragger); makeDraggable(wrap); dragger.addEventListener('pointerdown', startResize.bind(null,wrap)); pages[idx].annotations.images.push({el:wrap,src:i.src}); });
+      (pd.annotations.strokes||[]).forEach(s=>{ const ctx = pages[idx].drawCtx; ctx.strokeStyle = s.color||'#000'; ctx.lineWidth = s.width||2; ctx.beginPath(); s.points.forEach((pt,pi)=>{ if(pi===0) ctx.moveTo(pt.x,pt.y); else ctx.lineTo(pt.x,pt.y); }); ctx.stroke(); pages[idx].annotations.strokes.push(s); });
     });
-  }catch(e){
-    console.error('restore failed', e);
-  }
+  }catch(e){ console.warn('restore failed', e); }
 }
+function pushUndo(){ undoStack.push(snapshot()); redoStack = []; }
+$('undoBtn').onclick = ()=>{ if(!undoStack.length) return; const s = undoStack.pop(); redoStack.push(snapshot()); restore(s); }
+$('redoBtn').onclick = ()=>{ if(!redoStack.length) return; const s = redoStack.pop(); undoStack.push(snapshot()); restore(s); }
 
-/* Undo/Redo */
-function pushUndo(){
-  try{ undoStack.push(snapshot()); redoStack = []; }catch(e){ console.warn(e); }
-}
-$('undoBtn')?.addEventListener('click', ()=>{ if(!undoStack.length) return; const s = undoStack.pop(); redoStack.push(snapshot()); restoreSnapshot(s); });
-$('redoBtn')?.addEventListener('click', ()=>{ if(!redoStack.length) return; const s = redoStack.pop(); undoStack.push(snapshot()); restoreSnapshot(s); });
-
-/* ===== Save (rasterized visual export) ===== */
-$('savePdfBtn')?.addEventListener('click', async ()=>{
+/* Save visual PDF using pdf-lib: rasterize each page composite */
+$('savePdfBtn').addEventListener('click', async ()=>{
   if(!pages.length) return alert('Load a PDF first');
   try{
     const newDoc = await PDFLib.PDFDocument.create();
-    for(let i=0;i<pages.length;i++){
-      const p = pages[i];
-      if(p.deleted) continue;
-      // composite a high-res canvas
-      const scaleFactor = 2; // export DPI multiplier
-      const composite = document.createElement('canvas');
-      composite.width = p.width * scaleFactor;
-      composite.height = p.height * scaleFactor;
-      const cctx = composite.getContext('2d');
-      // draw base page (p.canvas) and drawing layer (p.draw)
-      cctx.drawImage(p.canvas, 0, 0, composite.width, composite.height);
-      cctx.drawImage(p.draw, 0, 0, composite.width, composite.height);
-
-      // draw text overlays
+    for(const p of pages){
+      // compose high-res canvas
+      const scale = 2;
+      const comp = document.createElement('canvas'); comp.width = p.canvas.width * scale; comp.height = p.canvas.height * scale;
+      const cctx = comp.getContext('2d');
+      cctx.drawImage(p.canvas, 0, 0, comp.width, comp.height);
+      cctx.drawImage(p.draw, 0, 0, comp.width, comp.height);
+      // draw text boxes
       for(const t of p.annotations.texts){
-        const el = t.el;
-        const left = parseFloat(el.style.left) || 0;
-        const top = parseFloat(el.style.top) || 0;
-        const fs = parseInt(el.style.fontSize) || 18;
-        // use fallback font family string
-        const fontFamily = (el.style.fontFamily && el.style.fontFamily.split(',')[0]) || 'Arial';
-        cctx.fillStyle = el.style.color || '#000';
-        cctx.font = `${fs * scaleFactor}px ${fontFamily}`;
-        const lines = (el.innerText || '').split('\n');
+        const el = t.el; const left = parseFloat(el.style.left)||0; const top = parseFloat(el.style.top)||0; const fs = parseInt(el.style.fontSize)||18;
+        cctx.font = `${fs*scale}px Arial`; cctx.fillStyle = el.style.color||'#000';
+        const lines = (el.innerText||'').split('\\n');
         for(let li=0; li<lines.length; li++){
-          const y = (top + (li * (fs + 2))) * scaleFactor + fs * scaleFactor;
-          cctx.fillText(lines[li], (left * scaleFactor) + 2, y);
+          cctx.fillText(lines[li], left*scale+2, (top + (li*(fs+2)))*scale + fs*scale);
         }
       }
-
-      // draw image overlays (extract URL carefully)
+      // draw images
       for(const im of p.annotations.images){
-        const el = im.el;
-        const left = parseFloat(el.style.left) || 0;
-        const top = parseFloat(el.style.top) || 0;
-        const w = parseFloat(el.style.width) || 100;
-        const h = parseFloat(el.style.height) || 100;
+        const el = im.el; const left = parseFloat(el.style.left)||0; const top = parseFloat(el.style.top)||0;
+        const w = parseFloat(el.style.width)||100; const h = parseFloat(el.style.height)||100;
         const bg = el.style.backgroundImage || '';
-        let url = '';
-        const start = bg.indexOf('url(');
-        const end = bg.lastIndexOf(')');
-        if(bg && start !== -1 && end !== -1){
-          url = bg.substring(start + 4, end).trim();
-          // strip surrounding quotes if present
-          if((url[0] === '"' || url[0] === "'") && url.length > 1) url = url.substring(1, url.length - 1);
-        }
+        let url = ''; const s = bg.indexOf('url('); const e = bg.lastIndexOf(')'); if(s!=-1 && e!=-1) { url = bg.substring(s+4,e).replace(/(^['\"]|['\"]$)/g,''); }
         if(url){
-          const img = new Image();
-          // allow dataURL or same-origin; for cross-origin, drawing might taint canvas and fail embedding
-          img.crossOrigin = 'anonymous';
-          img.src = url;
           await new Promise(res=>{
-            img.onload = ()=>{ cctx.drawImage(img, left * scaleFactor, top * scaleFactor, w * scaleFactor, h * scaleFactor); res(); };
-            img.onerror = ()=>{ console.warn('image draw failed', url); res(); };
+            const img = new Image(); img.crossOrigin='anonymous';
+            img.onload = ()=>{ cctx.drawImage(img, left*scale, top*scale, w*scale, h*scale); res(); };
+            img.onerror = ()=>res();
+            img.src = url;
           });
         }
       }
-
-      // convert composite to blob and embed in new PDF
-      const blob = await new Promise(res => composite.toBlob(res, 'image/jpeg', 0.95));
+      const blob = await new Promise(r=>comp.toBlob(r,'image/jpeg',0.95));
       const bytes = await blob.arrayBuffer();
-      const img = await newDoc.embedJpg(bytes);
-      const page = newDoc.addPage([img.width, img.height]);
-      page.drawImage(img, { x:0, y:0, width: img.width, height: img.height });
+      const jpg = await newDoc.embedJpg(bytes);
+      const page = newDoc.addPage([jpg.width, jpg.height]);
+      page.drawImage(jpg, {x:0,y:0,width:jpg.width,height:jpg.height});
     }
-
     const pdfBytes = await newDoc.save();
-    downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), 'edited.pdf');
-    logAudit('Saved edited PDF');
-    alert('Downloaded edited PDF (visual export)');
-  }catch(e){
-    console.error('save failed', e);
-    alert('Save failed: ' + (e && e.message || String(e)));
-  }
+    const blob = new Blob([pdfBytes],{type:'application/pdf'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download='edited.pdf'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    alert('Downloaded edited PDF');
+  }catch(err){ console.error(err); alert('Save failed: '+err.message); }
 });
-
-/* --- Merge PDFs --- */
-$('mergeBtn')?.addEventListener('click', async ()=>{
-  const files = $('pdfMerge')?.files;
-  if(!files || !files.length) return alert('Choose PDFs to merge');
-  try{
-    const newDoc = await PDFLib.PDFDocument.create();
-    for(const f of files){
-      const buf = await f.arrayBuffer();
-      const src = await PDFLib.PDFDocument.load(buf);
-      const indices = src.getPageIndices();
-      const copied = await newDoc.copyPages(src, indices);
-      copied.forEach(p => newDoc.addPage(p));
-    }
-    const bytes = await newDoc.save();
-    downloadBlob(new Blob([bytes], { type: 'application/pdf'}), 'merged.pdf');
-    logAudit('Merged PDFs');
-    alert('Merged downloaded');
-  }catch(e){
-    console.error(e); alert('Merge failed: ' + (e && e.message || String(e)));
-  }
-});
-
-/* Load PDF file */
-$('pdfFile')?.addEventListener('change', async (e)=>{
-  const f = e.target.files && e.target.files[0];
-  if(!f) return;
-  pdfBuffer = await f.arrayBuffer();
-  await renderPdf(pdfBuffer);
-  pushUndo();
-});
-
-/* Audit UI */
-$('showAuditBtn')?.addEventListener('click', ()=>{ if(!audit.length) return alert('No audit log'); alert(audit.map(a=> `${a.time} — ${a.action}`).join('\\n')); });
-$('clearAuditBtn')?.addEventListener('click', ()=>{ localStorage.removeItem('dt_pdf_audit'); audit = []; alert('Audit cleared'); });
-
-/* Clear all annotations (dangerous) */
-$('clearAllAnnotations')?.addEventListener('click', ()=> {
-  if(!confirm('Clear all annotations on all pages?')) return;
-  pages.forEach(p => {
-    p.overlay.querySelectorAll('.text-box,.img-box').forEach(n=>n.remove());
-    p.drawCtx.clearRect(0,0,p.draw.width,p.draw.height);
-    p.annotations = { texts: [], images: [], strokes: [] };
-  });
-  pushUndo();
-  logAudit('Cleared all annotations');
-});
-
-/* quick tool-card nav */
-document.querySelectorAll('.tool-card').forEach(card=>{
-  card.addEventListener('click', ()=> {
-    const r = card.dataset.route;
-    if(r) showPage(r);
-  });
-});
-
-/* SEO LD */
-(function(){
-  const ld = {"@context":"https://schema.org","@type":"WebSite","name":"Daily Tools Portal","url":location.href};
-  const s = document.createElement('script'); s.type='application/ld+json'; s.textContent = JSON.stringify(ld); document.head.appendChild(s);
-})();
-
 </script>
 </body>
 </html>
